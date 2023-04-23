@@ -1,4 +1,4 @@
-package gue
+package guex
 
 import "context"
 

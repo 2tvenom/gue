@@ -12,7 +12,6 @@ import (
 	"syscall"
 
 	gue "github.com/2tvenom/guex"
-	"github.com/2tvenom/guex/database"
 	"github.com/Shopify/sarama"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -65,7 +64,7 @@ func newGueClient(ctx context.Context) (*gue.Client, error) {
 		return nil, err
 	}
 
-	gc, err := gue.NewClient(database.New(connPool))
+	gc, err := gue.NewClient(connPool)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate gue client: %w", err)
 	}

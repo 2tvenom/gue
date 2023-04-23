@@ -1,2 +1,2 @@
 //go:generate sqlc generate
-package gue
+package guex

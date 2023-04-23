@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/2tvenom/guex"
 	"github.com/Shopify/sarama"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"

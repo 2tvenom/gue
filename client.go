@@ -1,4 +1,4 @@
-package gue
+package guex
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/2tvenom/guex/database"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -30,9 +31,9 @@ type Client struct {
 }
 
 // NewClient creates a new Client that uses the pgx pool.
-func NewClient(pool *database.Queries, options ...ClientOption) (c *Client, err error) {
+func NewClient(pool *pgxpool.Pool, options ...ClientOption) (c *Client, err error) {
 	c = &Client{
-		pool:    pool,
+		pool:    database.New(pool),
 		backoff: DefaultExponentialBackoff,
 	}
 

@@ -119,4 +119,4 @@ Here is a complete example showing worker setup for pgx/v4 and two jobs enqueued
 		}
 	}
 */
-package gue
+package guex

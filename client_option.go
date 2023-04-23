@@ -1,4 +1,4 @@
-package gue
+package guex
 
 // ClientOption defines a type that allows to set client properties during the build-time.
 type ClientOption func(*Client)
