@@ -3,7 +3,6 @@ module github.com/2tvenom/gue/example/outbox-worker-kafka
 go 1.19
 
 require (
-	github.com/2tvenom/gue v1.0.0
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Shopify/sarama v1.37.2
 	github.com/google/uuid v1.3.0

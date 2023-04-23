@@ -1,4 +1,4 @@
-module github.com/2tvenom/gue
+module github.com/2tvenom/guex
 
 go 1.19
 
