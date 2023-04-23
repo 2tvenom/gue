@@ -100,10 +100,12 @@ type WorkerPool struct {
 // nameless queue "", which can be overridden by WithPoolQueue option.
 func NewWorkerPool(c *Client, options ...WorkerPoolOption) (*WorkerPool, error) {
 	var w = WorkerPool{
-		interval: defaultPollInterval,
-		client:   c,
-		id:       RandomStringID(),
-		wm:       WorkMap{},
+		interval:             defaultPollInterval,
+		client:               c,
+		id:                   RandomStringID(),
+		wm:                   WorkMap{},
+		queueRestoreAfter:    time.Minute * 5,
+		queueRestoreInterval: time.Minute,
 
 		panicStackBufSize: defaultPanicStackBufSize,
 	}
@@ -141,27 +143,24 @@ func (w *WorkerPool) Run(ctx context.Context) (err error) {
 			}
 		})
 
-		if w.queueRestoreAfter > 0 {
-			w.waitStop.Add(1)
-			grp.Go(func() error {
-				defer w.waitStop.Done()
-				for {
-					select {
-					case <-ctx.Done():
-						return nil
-					case <-time.After(w.queueRestoreInterval):
-					}
-
-					var childCtx, cancelFunc = context.WithTimeout(ctx, time.Second*30)
-					if err := w.client.RestoreStuck(childCtx, w.queueRestoreAfter, w.queue...); err != nil {
-						w.logger.Error("error restore stuck jobs", zap.Error(err))
-					}
-
-					cancelFunc()
+		w.waitStop.Add(1)
+		grp.Go(func() error {
+			defer w.waitStop.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(w.queueRestoreInterval):
 				}
-			})
 
-		}
+				var childCtx, cancelFunc = context.WithTimeout(ctx, time.Second*30)
+				if err := w.client.RestoreStuck(childCtx, w.queueRestoreAfter, w.queue...); err != nil {
+					w.logger.Error("error restore stuck jobs", zap.Error(err))
+				}
+				cancelFunc()
+			}
+		})
+
 		err = grp.Wait()
 		w.once = sync.Once{}
 	})
