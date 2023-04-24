@@ -188,7 +188,6 @@ func (w *WorkerPool) Stop() {
 func (w *WorkerPool) WorkOne(ctx context.Context) (err error) {
 	var jobs []*Job
 	w.lock.RLock()
-	fmt.Printf("queue: %+v\n", w.queue)
 	if jobs, err = w.client.LockNextScheduledJob(ctx, w.queue); err != nil {
 		w.lock.RUnlock()
 		return fmt.Errorf("error get scheduled job: %w", err)

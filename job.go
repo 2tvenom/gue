@@ -3,7 +3,6 @@ package guex
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -50,7 +49,6 @@ func (j *Job) Error(ctx context.Context, jErr error) (err error) {
 	if newRunAt.IsZero() {
 		return j.Fail(ctx)
 	}
-	fmt.Printf("next schedule: %s\n", newRunAt)
 	return j.db.UpdateStatusError(ctx, database.UpdateStatusErrorParams{
 		ID:         j.ID,
 		ErrorCount: errorCount,
