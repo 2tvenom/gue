@@ -97,3 +97,11 @@ func WithPoolQueueRestore(restoreAfter, interval time.Duration) WorkerPoolOption
 		w.queueRestoreInterval = interval
 	}
 }
+
+// WithBackoff sets backoff implementation that will be applied to errored jobs
+// within current client session.
+func WithBackoff(backoff Backoff) WorkerPoolOption {
+	return func(c *WorkerPool) {
+		c.client.backoff = backoff
+	}
+}
