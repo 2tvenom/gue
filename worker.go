@@ -93,6 +93,10 @@ type WorkerPool struct {
 	panicStackBufSize int
 }
 
+func (w *WorkerPool) Client() *Client {
+	return w.client
+}
+
 // NewWorkerPool creates a new WorkerPool with count workers using the Client c.
 //
 // Each Worker in the pool default to a poll interval of 5 seconds, which can be
