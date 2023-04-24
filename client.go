@@ -30,17 +30,11 @@ type Client struct {
 }
 
 // NewClient creates a new Client that uses the pgx pool.
-func NewClient(pool *pgxpool.Pool, options ...ClientOption) (c *Client) {
-	c = &Client{
+func NewClient(pool *pgxpool.Pool) (c *Client) {
+	return &Client{
 		pool:    database.New(pool),
 		backoff: DefaultExponentialBackoff,
 	}
-
-	for _, option := range options {
-		option(c)
-	}
-
-	return c
 }
 
 // Enqueue adds a job to the queue.
