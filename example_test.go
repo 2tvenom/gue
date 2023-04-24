@@ -42,8 +42,8 @@ func Test_WorkerPool(t *testing.T) {
 	pool, err = pgxpool.ConnectConfig(context.Background(), connPoolConfig)
 	assert.NoError(t, err)
 
-	//_, err = pool.Exec(context.Background(), "TRUNCATE TABLE _jobs")
-	//assert.NoError(t, err)
+	_, err = pool.Exec(context.Background(), "TRUNCATE TABLE _jobs")
+	assert.NoError(t, err)
 
 	var client = NewClient(pool)
 	addTasks(client, "foo", "foo", 100)
