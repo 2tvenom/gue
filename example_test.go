@@ -70,7 +70,7 @@ func Test_WorkerPool(t *testing.T) {
 		}),
 		WithWorkerPoolHandler("foo", func(ctx context.Context, j *Job) error {
 			time.Sleep(time.Second * 3)
-			return nil
+			return fmt.Errorf("some err")
 		}),
 		WithLogger(logger),
 		WithWorkerPoolHandler("bar", func(ctx context.Context, j *Job) error {

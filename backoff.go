@@ -8,7 +8,7 @@ import (
 
 // Backoff is the interface for backoff implementation that will be used to reschedule errored jobs to a later time.
 // If the Backoff implementation returns negative duration - the job will be discarded.
-type Backoff func(retries int) time.Duration
+type Backoff func(job *Job, retries int) time.Duration
 
 var (
 	// DefaultExponentialBackoff is the exponential Backoff implementation with default config applied
@@ -28,13 +28,15 @@ var (
 
 // NewExponentialBackoff instantiates new exponential Backoff implementation with config
 func NewExponentialBackoff(cfg exp.Config) Backoff {
-	return exp.Exponential{Config: cfg}.Backoff
+	return func(job *Job, retries int) time.Duration {
+		return exp.Exponential{Config: cfg}.Backoff(retries)
+	}
 }
 
 // NewConstantBackoff instantiates new backoff implementation with teh constant retry duration that does not depend
 // on the retry.
 func NewConstantBackoff(d time.Duration) Backoff {
-	return func(int) time.Duration {
+	return func(*Job, int) time.Duration {
 		return d
 	}
 }

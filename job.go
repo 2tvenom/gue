@@ -78,7 +78,7 @@ func (j *Job) calculateErrorRunAt(err error, errorCount int32) time.Time {
 		return errReschedule.rescheduleJobAt()
 	}
 
-	var backoff = j.backoff(int(errorCount))
+	var backoff = j.backoff(j, int(errorCount))
 	if backoff < 0 {
 		return time.Time{}
 	}
