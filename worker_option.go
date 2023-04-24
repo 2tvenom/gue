@@ -26,7 +26,7 @@ func WithWorkerPanicStackBufSize(size int) WorkerPoolOption {
 	}
 }
 
-func WithWorkerPanicWorkerHandler(jobType string, h WorkFunc) WorkerPoolOption {
+func WithWorkerPoolHandler(jobType string, h WorkFunc) WorkerPoolOption {
 	return func(w *WorkerPool) {
 		w.wm[jobType] = h
 	}

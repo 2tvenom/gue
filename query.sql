@@ -8,7 +8,7 @@ UPDATE _jobs
 SET status     = 'processing',
     updated_at = now(),
     run_at     = now()
-WHERE id = ANY ($1::bigserial[]);
+WHERE id = ANY ($1::bigint[]);
 
 -- name: UpdateStatusError :exec
 UPDATE _jobs
@@ -18,13 +18,6 @@ SET error_count = $1,
     updated_at  = now(),
     status      = 'pending'
 WHERE id = $4;
-
--- name: RestoreStuck :exec
-UPDATE _jobs
-SET status = 'pending'
-WHERE status = 'pending'
-  AND queue = ANY ($1::varchar[])
-  AND run_at <= now() - INTERVAL '' || $2 || ' minutes';
 
 -- name: Enqueue :exec
 INSERT INTO _jobs (queue, job_type, priority, run_at, payload, metadata)

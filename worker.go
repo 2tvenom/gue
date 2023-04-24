@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/metric/global"
@@ -72,14 +73,13 @@ type WorkerPool struct {
 	client   *Client
 	id       string
 
+	onAir      int32
 	ctxCancel  context.CancelFunc
 	ctxCancel1 context.CancelCauseFunc
 	waitStop   sync.WaitGroup
 
 	logger *zap.Logger
-
-	once sync.Once
-	lock sync.RWMutex
+	lock   sync.RWMutex
 
 	queueRestoreAfter    time.Duration
 	queueRestoreInterval time.Duration
@@ -106,6 +106,7 @@ func NewWorkerPool(c *Client, options ...WorkerPoolOption) (*WorkerPool, error) 
 		wm:                   WorkMap{},
 		queueRestoreAfter:    time.Minute * 5,
 		queueRestoreInterval: time.Minute,
+		logger:               zap.NewNop(),
 
 		panicStackBufSize: defaultPanicStackBufSize,
 	}
@@ -124,46 +125,57 @@ func NewWorkerPool(c *Client, options ...WorkerPoolOption) (*WorkerPool, error) 
 // Run runs all the Workers in the WorkerPool in own goroutines.
 // Run blocks until all workers exit. Use context cancellation for
 // shutdown.
-func (w *WorkerPool) Run(ctx context.Context) (err error) {
-	ctx, w.ctxCancel = context.WithCancel(ctx)
-	w.once.Do(func() {
-		var grp, ctx = errgroup.WithContext(ctx)
-		w.waitStop.Add(1)
-		grp.Go(func() error {
-			defer w.waitStop.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(w.interval):
-					if err = w.WorkOne(ctx); err != nil {
-						w.logger.Error("error run worker", zap.Error(err))
-					}
+func (w *WorkerPool) Run(parentCtx context.Context) (err error) {
+	if atomic.LoadInt32(&w.onAir) == 1 {
+		return nil
+	}
+
+	atomic.AddInt32(&w.onAir, 1)
+	defer atomic.StoreInt32(&w.onAir, 0)
+
+	var (
+		ctx context.Context
+		grp *errgroup.Group
+	)
+
+	ctx, w.ctxCancel = context.WithCancel(parentCtx)
+	grp, ctx = errgroup.WithContext(ctx)
+
+	w.waitStop.Add(1)
+	grp.Go(func() error {
+		defer w.waitStop.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(w.interval):
+				if err = w.WorkOne(ctx); err != nil {
+					w.logger.Error("error run worker", zap.Error(err))
 				}
 			}
-		})
-
-		w.waitStop.Add(1)
-		grp.Go(func() error {
-			defer w.waitStop.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(w.queueRestoreInterval):
-				}
-
-				var childCtx, cancelFunc = context.WithTimeout(ctx, time.Second*30)
-				if err := w.client.RestoreStuck(childCtx, w.queueRestoreAfter, w.queue...); err != nil {
-					w.logger.Error("error restore stuck jobs", zap.Error(err))
-				}
-				cancelFunc()
-			}
-		})
-
-		err = grp.Wait()
-		w.once = sync.Once{}
+		}
 	})
+
+	w.waitStop.Add(1)
+	grp.Go(func() error {
+		defer w.waitStop.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(w.queueRestoreInterval):
+			}
+
+			var childCtx, cancelFunc = context.WithTimeout(ctx, time.Second*30)
+			if err := w.client.RestoreStuck(childCtx, w.queueRestoreAfter, w.queue...); err != nil {
+				w.logger.Error("error restore stuck jobs", zap.Error(err))
+			}
+			cancelFunc()
+		}
+	})
+
+	err = grp.Wait()
+	w.waitStop.Wait()
 	return err
 }
 
@@ -176,6 +188,7 @@ func (w *WorkerPool) Stop() {
 func (w *WorkerPool) WorkOne(ctx context.Context) (err error) {
 	var jobs []*Job
 	w.lock.RLock()
+	fmt.Printf("queue: %+v\n", w.queue)
 	if jobs, err = w.client.LockNextScheduledJob(ctx, w.queue); err != nil {
 		w.lock.RUnlock()
 		return fmt.Errorf("error get scheduled job: %w", err)
@@ -188,7 +201,9 @@ func (w *WorkerPool) WorkOne(ctx context.Context) (err error) {
 	for _, j := range jobs {
 		w.limitWorker(j.Queue, -1)
 
+		w.waitStop.Add(1)
 		go func(j *Job) {
+			defer w.waitStop.Done()
 			defer w.recoverPanic(ctx, j)
 			defer w.limitWorker(j.Queue, 1)
 
@@ -234,10 +249,9 @@ func (w *WorkerPool) WorkOne(ctx context.Context) (err error) {
 
 			return
 		}(j)
-
 	}
 
-	return
+	return nil
 }
 
 func (w *WorkerPool) limitWorker(queue string, counter int32) {
@@ -248,6 +262,7 @@ func (w *WorkerPool) limitWorker(queue string, counter int32) {
 			continue
 		}
 		w.queue[i].Limit += counter
+		break
 	}
 }
 

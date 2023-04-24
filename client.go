@@ -2,7 +2,6 @@ package guex
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -31,7 +30,7 @@ type Client struct {
 }
 
 // NewClient creates a new Client that uses the pgx pool.
-func NewClient(pool *pgxpool.Pool, options ...ClientOption) (c *Client, err error) {
+func NewClient(pool *pgxpool.Pool, options ...ClientOption) (c *Client) {
 	c = &Client{
 		pool:    database.New(pool),
 		backoff: DefaultExponentialBackoff,
@@ -41,7 +40,7 @@ func NewClient(pool *pgxpool.Pool, options ...ClientOption) (c *Client, err erro
 		option(c)
 	}
 
-	return c, nil
+	return c
 }
 
 // Enqueue adds a job to the queue.
@@ -137,16 +136,18 @@ func (c *Client) LockNextScheduledJob(ctx context.Context, limits []QueueLimit) 
 	var (
 		vals string
 		args []interface{}
+		incr int
 	)
-	for i, l := range limits {
+	for _, l := range limits {
 		if l.Limit <= 0 {
 			continue
 		}
 		if vals != "" {
 			vals += ","
 		}
-		vals += fmt.Sprintf("($%d, $%d)", (i*2)+1, (i*2)+2)
+		vals += fmt.Sprintf("($%d, $%d)", (incr*2)+1, (incr*2)+2)
 		args = append(args, l.Queue, l.Limit)
+		incr++
 	}
 
 	if len(args) == 0 {
@@ -160,7 +161,7 @@ func (c *Client) LockNextScheduledJob(ctx context.Context, limits []QueueLimit) 
 									queue,
 									row_number() OVER (PARTITION BY queue ORDER BY run_at, priority ASC) AS r
 							 FROM _jobs j
-							 WHERE status = 'pending'),
+							 WHERE status = 'pending' AND run_at <= now()),
 				ids AS (SELECT *
 						 FROM pending p
 								  INNER JOIN limits l ON p.queue = l.queue AND p.r <= l.lim)
@@ -180,8 +181,11 @@ func (c *Client) LockNextScheduledJob(ctx context.Context, limits []QueueLimit) 
 	)
 
 	err = c.pool.Pool().BeginTxFunc(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		var rows pgx.Rows
-		if rows, err = tx.Query(ctx, fmt.Sprintf(query, vals), args...); err != nil {
+		var (
+			rows       pgx.Rows
+			queryFinal = fmt.Sprintf(query, vals)
+		)
+		if rows, err = tx.Query(ctx, queryFinal, args...); err != nil {
 			return fmt.Errorf("error get jobs: %w", err)
 		}
 
@@ -224,13 +228,31 @@ func (c *Client) LockNextScheduledJob(ctx context.Context, limits []QueueLimit) 
 }
 
 func (c *Client) RestoreStuck(ctx context.Context, runAfter time.Duration, queue ...QueueLimit) (err error) {
-	var queues = make([]string, len(queue))
-	for i, q := range queue {
-		queues[i] = q.Queue
+	var (
+		args = make([]interface{}, 0, len(queue)+1)
+		inc  int
+		val  string
+	)
+
+	for _, q := range queue {
+		if val != "" {
+			val += ","
+		}
+		inc++
+		val += fmt.Sprintf("$%d", inc)
+		args = append(args, q.Queue)
 	}
 
-	return c.pool.RestoreStuck(ctx, database.RestoreStuckParams{
-		Column1: queues,
-		Column2: sql.NullString{String: fmt.Sprintf("%d", int(runAfter.Minutes())), Valid: true},
-	})
+	_, err = c.pool.Pool().Exec(ctx,
+		fmt.Sprintf(
+			`UPDATE _jobs SET status = 'pending'
+             							WHERE status = 'processing'
+                                      	AND queue IN (%s)
+  										AND run_at <= now() - INTERVAL '%d minutes'`,
+			val,
+			int(runAfter.Minutes()),
+		),
+		args...,
+	)
+	return err
 }

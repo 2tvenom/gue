@@ -312,29 +312,11 @@ UPDATE _jobs
 SET status     = 'processing',
     updated_at = now(),
     run_at     = now()
-WHERE id = ANY ($1::bigserial[])
+WHERE id = ANY ($1::bigint[])
 `
 
 func (q *Queries) JobToProcessing(ctx context.Context, dollar_1 []int64) error {
 	_, err := q.db.Exec(ctx, jobToProcessing, dollar_1)
-	return err
-}
-
-const restoreStuck = `-- name: RestoreStuck :exec
-UPDATE _jobs
-SET status = 'pending'
-WHERE status = 'pending'
-  AND queue = ANY ($1::varchar[])
-  AND run_at <= now() - INTERVAL '' || $2 || ' minutes'
-`
-
-type RestoreStuckParams struct {
-	Column1 []string
-	Column2 sql.NullString
-}
-
-func (q *Queries) RestoreStuck(ctx context.Context, arg RestoreStuckParams) error {
-	_, err := q.db.Exec(ctx, restoreStuck, arg.Column1, arg.Column2)
 	return err
 }
 
