@@ -184,6 +184,10 @@ func (w *WorkerPool) Stop() {
 	w.waitStop.Wait()
 }
 
+func (w *WorkerPool) WorkMap(wm WorkMap) {
+	w.wm = wm
+}
+
 // WorkOne tries to consume single message from the queue.
 func (w *WorkerPool) WorkOne(ctx context.Context) (err error) {
 	var jobs []*Job
