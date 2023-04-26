@@ -46,7 +46,7 @@ func Test_WorkerPool(t *testing.T) {
 	assert.NoError(t, err)
 
 	var client = NewClient(pool)
-	addTasks(client, "foo", "foo", 100)
+	addTasks(client, "foo", "foo", 5)
 	addTasks(client, "bar", "bar", 50)
 	addTasks(client, "bar", "baz", 50)
 
@@ -69,7 +69,16 @@ func Test_WorkerPool(t *testing.T) {
 			Limit: 10,
 		}),
 		WithWorkerPoolHandler("foo", func(ctx context.Context, j *Job) error {
-			time.Sleep(time.Second * 3)
+			if j.ID%5 == 0 {
+				// set job to fail status
+				return fmt.Errorf("discard err: %w", ErrDiscard)
+			}
+
+			if j.ErrorCount > 4 {
+				return nil
+			}
+
+			time.Sleep(time.Second)
 			return fmt.Errorf("some err")
 		}),
 		WithLogger(logger),

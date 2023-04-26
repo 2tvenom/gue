@@ -322,17 +322,19 @@ func (q *Queries) JobToProcessing(ctx context.Context, dollar_1 []int64) error {
 
 const updateStatus = `-- name: UpdateStatus :exec
 UPDATE _jobs
-SET status = $2
+SET status     = $2,
+    last_error = $3
 WHERE id = $1
 `
 
 type UpdateStatusParams struct {
-	ID     int64
-	Status JobStatus
+	ID        int64
+	Status    JobStatus
+	LastError sql.NullString
 }
 
 func (q *Queries) UpdateStatus(ctx context.Context, arg UpdateStatusParams) error {
-	_, err := q.db.Exec(ctx, updateStatus, arg.ID, arg.Status)
+	_, err := q.db.Exec(ctx, updateStatus, arg.ID, arg.Status, arg.LastError)
 	return err
 }
 

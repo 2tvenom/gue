@@ -3,6 +3,7 @@ package guex
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -30,6 +31,7 @@ func (j *Job) Fail(ctx context.Context) (err error) {
 // Done commits transaction that marks job as done. If you got the job from the worker - it will take care of
 // cleaning up the job and resources, no need to do this manually in a WorkFunc.
 func (j *Job) Done(ctx context.Context) error {
+	j.LastError.Valid = false
 	return j.setProcessed(ctx, database.JobStatusFinished)
 }
 
@@ -47,6 +49,7 @@ func (j *Job) Error(ctx context.Context, jErr error) (err error) {
 		newRunAt   = j.calculateErrorRunAt(jErr, errorCount)
 	)
 	if newRunAt.IsZero() {
+		j.LastError = sql.NullString{String: jErr.Error(), Valid: true}
 		return j.Fail(ctx)
 	}
 	return j.db.UpdateStatusError(ctx, database.UpdateStatusErrorParams{
@@ -63,8 +66,9 @@ func (j *Job) setProcessed(ctx context.Context, status database.JobStatus) (err 
 	}
 
 	if err = j.db.UpdateStatus(ctx, database.UpdateStatusParams{
-		ID:     j.ID,
-		Status: status,
+		ID:        j.ID,
+		Status:    status,
+		LastError: j.LastError,
 	}); err != nil {
 		return err
 	}
@@ -75,7 +79,15 @@ func (j *Job) setProcessed(ctx context.Context, status database.JobStatus) (err 
 
 func (j *Job) calculateErrorRunAt(err error, errorCount int32) time.Time {
 	if errReschedule, ok := err.(ErrJobReschedule); ok {
-		return errReschedule.rescheduleJobAt()
+		return errReschedule.RescheduleJobAt()
+	}
+
+	if errors.Is(err, ErrDiscard) {
+		j.LastError = sql.NullString{
+			String: err.Error(),
+			Valid:  true,
+		}
+		return time.Time{}
 	}
 
 	var backoff = j.backoff(j, int(errorCount))

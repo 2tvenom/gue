@@ -1,6 +1,7 @@
 -- name: UpdateStatus :exec
 UPDATE _jobs
-SET status = $2
+SET status     = $2,
+    last_error = $3
 WHERE id = $1;
 
 -- name: JobToProcessing :exec
