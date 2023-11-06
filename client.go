@@ -95,7 +95,7 @@ func (c *Client) execEnqueue(ctx context.Context, j *Job, q *database.Queries) (
 	}
 
 	var query = q
-	if query != nil {
+	if query == nil {
 		query = c.pool
 	}
 
