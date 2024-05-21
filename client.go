@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // ErrMissingType is returned when you attempt to enqueue a job with no Type
@@ -108,7 +109,11 @@ func (c *Client) execEnqueue(ctx context.Context, j *Job, q *database.Queries) (
 		Metadata: j.Metadata,
 	})
 
-	EnqueueMeter.Add(ctx, 1, attribute.String("type", j.JobType), attribute.String("queue", j.Queue))
+	EnqueueMeter.Add(
+		ctx,
+		1,
+		metric.WithAttributes(attribute.String("type", j.JobType), attribute.String("queue", j.Queue)),
+	)
 
 	return err
 }

@@ -1,6 +1,8 @@
 module github.com/2tvenom/guex/ui
 
-go 1.19
+go 1.21
+
+toolchain go1.22.1
 
 require (
 	github.com/2tvenom/guex v1.0.0

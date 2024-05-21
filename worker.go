@@ -10,23 +10,23 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 var (
-	Meter        = global.MeterProvider().Meter("guex")
-	EnqueueMeter instrument.Int64Counter
+	Meter        = otel.Meter("guex")
+	EnqueueMeter metric.Int64Counter
 )
 
 func init() {
 	var err error
 	EnqueueMeter, err = Meter.Int64Counter("enqueue",
-		instrument.WithUnit("1"),
-		instrument.WithDescription("tasks insertion metric"),
+		metric.WithUnit("1"),
+		metric.WithDescription("tasks insertion metric"),
 	)
 	if err != nil {
 		panic("error create metric")
