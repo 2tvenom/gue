@@ -65,7 +65,7 @@ GROUP BY queue, status, date(created_at)
 ORDER BY date(created_at);
 
 -- name: GetTotalInfoWithErrors :many
-SELECT queue, count(*) as cnt
+SELECT queue, sum(error_count) as cnt
 FROM _jobs
 WHERE error_count > 0
   AND status = 'pending'
