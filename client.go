@@ -38,6 +38,10 @@ func NewClient(pool *pgxpool.Pool) (c *Client) {
 	}
 }
 
+func (c *Client) Pool() *database.Queries {
+	return c.pool
+}
+
 // Enqueue adds a job to the queue.
 func (c *Client) Enqueue(ctx context.Context, j *Job) error {
 	return c.execEnqueue(ctx, j, c.pool)
