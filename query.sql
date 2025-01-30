@@ -70,3 +70,10 @@ FROM _jobs
 WHERE error_count > 0
   AND status = 'pending'
 GROUP BY queue;
+
+-- name: GetFailedInLast24hr :many
+SELECT queue, count(*) as cnt, sum(error_count) as err_count
+FROM _jobs
+WHERE status = 'failed'
+  AND created_at > NOW() - INTERVAL '1 days'
+GROUP BY queue, status;
